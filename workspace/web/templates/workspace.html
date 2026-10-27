@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus AI Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <style>
+        :root {
+            --bg-main: #0a0a0a;
+            --bg-panel: #121212;
+            --border-color: #262626;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent: #2e8fff;
+            --user-msg-bg: #1e1e1e;
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; padding: 0; 
+            display: flex; height: 100vh; 
+            background-color: var(--bg-main); color: var(--text-main); 
+            overflow: hidden;
+        }
+        
+        /* Layout */
+        .sidebar { width: 260px; min-width: 260px; background-color: var(--bg-panel); border-right: 1px solid var(--border-color); padding: 20px 15px; display: flex; flex-direction: column; overflow-y: auto; }
+        .main-chat { flex-grow: 1; display: flex; flex-direction: column; position: relative; background-color: var(--bg-main); overflow: hidden; }
+        .context-panel { width: 320px; min-width: 320px; background-color: var(--bg-panel); border-left: 1px solid var(--border-color); padding: 20px; overflow-y: auto; }
+        
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Left Sidebar UI */
+        .logo { font-size: 1.4em; font-weight: 600; margin-bottom: 30px; margin-left: 10px; display: flex; align-items: center; gap: 10px; color: #fff; letter-spacing: 0.05em; }
+        .new-btn { padding: 12px 15px; background: #1e1e1e; color: #fff; border: 1px solid #333; border-radius: 8px; margin-bottom: 20px; cursor: pointer; display: flex; align-items: center; gap: 10px; font-family: 'Inter', sans-serif; font-size: 0.9em; font-weight: 500; transition: background 0.2s, border-color 0.2s; }
+        .new-btn:hover { background: #2a2a2a; border-color: #555; }
+        #search-box { width: 100%; padding: 10px 12px; margin-bottom: 20px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); color: white; box-sizing: border-box; font-family: 'Inter', sans-serif; font-size: 0.9em; outline: none; }
+        #search-box:focus { border-color: var(--accent); }
+        .sidebar-title { font-size: 0.75em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin: 10px 0 10px 10px; font-weight: 600; }
+        .history-list { flex-grow: 1; }
+        .sidebar-item { padding: 10px 12px; margin: 4px 0; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; color: var(--text-muted); transition: background 0.2s, color 0.2s; }
+        .sidebar-item:hover { background-color: var(--bg-main); color: #fff; }
+        .sidebar-item.active { background-color: var(--user-msg-bg); font-weight: 500; color: #fff; }
+        .sidebar-item button { background: none; border: none; color: #666; cursor: pointer; padding: 4px; border-radius: 4px; display: none; }
+        .sidebar-item:hover button { display: block; }
+        .sidebar-item button:hover { color: #f44336; background: rgba(244,67,54,0.1); }
+
+        /* Main Chat Area */
+        .chat-header { padding: 15px 30px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 1em; display: flex; justify-content: space-between; align-items: center; color: #fff; background: var(--bg-main); z-index: 5; }
+        .chat-messages { flex-grow: 1; padding: 30px 15% 150px 15%; overflow-y: auto; display: flex; flex-direction: column; }
+        
+        .message-container { margin-bottom: 30px; width: 100%; display: flex; flex-direction: column; }
+        .user-message-container { align-items: flex-end; }
+        .assistant-message-container { align-items: flex-start; }
+        
+        .message { line-height: 1.6; max-width: 100%; font-size: 0.95em; word-wrap: break-word; }
+        .user-message { background-color: var(--user-msg-bg); color: #fff; padding: 12px 20px; border-radius: 18px; border: 1px solid var(--border-color); max-width: 80%; }
+        .assistant-message { background-color: transparent; color: var(--text-main); width: 100%; }
+        
+        /* Markdown / HTML content styles */
+        .assistant-message p { margin-top: 0; margin-bottom: 15px; }
+        .assistant-message p:last-child { margin-bottom: 0; }
+        .assistant-message pre { background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); overflow-x: auto; margin: 15px 0; }
+        .assistant-message code { font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 0.9em; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 4px; }
+        .assistant-message pre code { background: transparent; padding: 0; border-radius: 0; }
+        .assistant-message table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9em; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .assistant-message th, .assistant-message td { border-bottom: 1px solid var(--border-color); padding: 10px 15px; text-align: left; }
+        .assistant-message th { background-color: #1a1a1a; font-weight: 500; }
+        
+        /* Attachments and Badges */
+        .attachment-badge { display: inline-flex; align-items: center; gap: 15px; background: #1a1a1a; padding: 12px; border-radius: 8px; font-size: 0.9em; margin-bottom: 15px; border: 1px solid var(--border-color); width: fit-content; }
+        
+        /* Input Area */
+        .chat-input-wrapper { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: center; pointer-events: none; z-index: 10; }
+        .chat-input { pointer-events: auto; width: 80%; max-width: 800px; background: #18181b; border: 1px solid #27272a; border-radius: 20px; padding: 10px 15px; display: flex; align-items: flex-end; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); transition: border-color 0.2s; }
+        .chat-input:focus-within { border-color: #3f3f46; }
+        
+        .chat-input textarea { flex-grow: 1; padding: 8px 5px; border: none; background: transparent; color: white; outline: none; font-size: 1em; font-family: 'Inter', sans-serif; resize: none; max-height: 200px; overflow-y: auto; line-height: 1.5; min-height: 24px; }
+        
+        .icon-btn { border-radius: 50%; width: 32px; height: 32px; padding: 0; display: flex; justify-content: center; align-items: center; border: none; cursor: pointer; transition: background 0.2s; background: transparent; color: var(--text-muted); }
+        .icon-btn:hover { background: #27272a; color: #fff; }
+        .submit-btn { background: #fff; color: #000; margin-bottom: 4px; }
+        .submit-btn:hover { background: #e0e0e0; color: #000; }
+        .submit-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+        
+        /* Loading Overlay */
+        .loading-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.7); z-index: 20; justify-content: center; align-items: center; color: white; font-weight: 500; font-size: 1.1em; }
+        .spinner { border: 3px solid rgba(255,255,255,0.1); width: 24px; height: 24px; border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin-right: 15px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Right Context Panel */
+        .panel-section { margin-bottom: 30px; }
+        .panel-section h3 { font-size: 0.75em; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.1em; border: none; margin-top: 0; font-weight: 600; }
+        .panel-value { font-size: 0.9em; color: #d4d4d4; line-height: 1.5; background: #1a1a1a; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
+        .panel-btn { width: 100%; padding: 10px; background: transparent; color: #fff; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 0.9em; transition: background 0.2s; }
+        .panel-btn:hover { background: #1e1e1e; }
+        
+        /* Modals */
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; justify-content:center; align-items:center; }
+        .modal-content { background:var(--bg-panel); padding:24px; border-radius:12px; border: 1px solid var(--border-color); color: #e0e0e0; width: 500px; max-width: 90%; }
+        .modal-content input, .modal-content textarea { width:100%; padding:12px; border-radius:6px; border: 1px solid var(--border-color); background: var(--bg-main); color: white; margin-bottom:15px; font-family: 'Inter', sans-serif; box-sizing: border-box; outline: none; }
+        .modal-content input:focus, .modal-content textarea:focus { border-color: var(--accent); }
+        /* --- Hunt console + approval cards --- */
+        .hunt-card { background: var(--bg-main); border: 1px solid #007acc; border-radius: 10px; padding: 14px 16px; margin: 6px 0; }
+        .hunt-card.denied { border-color: #f44336; }
+        .hunt-card h4 { margin: 0 0 8px; color: #4fc3f7; font-size: 14px; }
+        .hunt-row { font-size: 13px; color: var(--text-muted); margin: 3px 0; }
+        .hunt-row b { color: #e0e0e0; }
+        .hunt-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+        .hunt-badge.in { background: #1b5e20; color: #a5d6a7; }
+        .hunt-badge.out { background: #4a1c1c; color: #ef9a9a; }
+        .hunt-badge.new { background: #0d3c61; color: #90caf9; }
+        .hunt-actions { margin-top: 10px; display: flex; gap: 8px; }
+        .hunt-btn { border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; font-weight: 600; }
+        .hunt-btn.confirm { background: #007acc; color: #fff; }
+        .hunt-btn.deny { background: #333; color: #ccc; }
+        .hunt-btn:disabled { opacity: 0.5; cursor: default; }
+        #hunt-console { display: none; }
+        #hunt-feed { max-height: 200px; overflow-y: auto; font-size: 12px; font-family: monospace; margin-top: 6px; }
+        .hunt-ev { padding: 3px 0; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
+        .hunt-ev .et { color: #4fc3f7; font-weight: 600; }
+        .hunt-snip { white-space: pre-wrap; color: #8a8a8a; font-size: 11px; margin: 2px 0 4px 10px; max-height: 120px; overflow-y: auto; }
+        #hunt-graph { height: 220px; background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 8px; }
+        .hunt-status { font-size: 12px; color: #90caf9; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <a href="/" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 10px;" title="New Conversation">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                ARGUS
+            </a>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom: 20px;">
+            <button class="new-btn" onclick="window.location.href='/'" style="margin-bottom:0;" title="Start a New Conversation">+ Chat</button>
+            <button class="new-btn" onclick="createNewProject()" style="margin-bottom:0;">+ Project</button>
+            <button class="new-btn" onclick="createNewConversation()" style="margin-bottom:0;">+ Task</button>
+        </div>
+        
+        <input type="text" id="search-box" placeholder="Search projects/tasks...">
+        
+        <div class="sidebar-title">Projects</div>
+        <div class="history-list" id="projects-list" style="margin-bottom: 20px;">
+            <!-- Populated via JS -->
+        </div>
+        
+        <div class="sidebar-title">Recent Conversations</div>
+        <div class="history-list" id="history-list">
+            <!-- Populated via JS -->
+        </div>
+    </div>
+    
+    <!-- MAIN CHAT AREA -->
+    <div class="main-chat">
+        <div class="chat-header">
+            <span id="chat-title" {% if conversation.conversation_id %}onclick="renameConversation('{{ conversation.conversation_id }}', '{{ conversation.title|escape }}')" style="cursor:pointer; border-bottom:1px dashed #555;"{% endif %} title="Click to rename">{{ conversation.title }}</span>
+            <button onclick="deleteCurrent()" style="background:none; border:none; color:#f44336; cursor:pointer; font-weight:500; font-family:'Inter',sans-serif;" {% if not conversation.messages %}hidden{% endif %}>Delete</button>
+        </div>
+        
+        <div class="chat-messages" id="chat-messages">
+            {% if not conversation.messages %}
+                <div style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-muted);">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom: 20px; opacity: 0.5;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    <h2>What would you like to investigate?</h2>
+                    <p style="font-size: 0.9em; max-width: 400px; text-align: center;">Send a message or attach an image to begin.</p>
+                </div>
+            {% endif %}
+            
+            {% for msg in conversation.messages %}
+                <div class="message-container {% if msg.role == 'user' %}user-message-container{% else %}assistant-message-container{% endif %}">
+                    {% if msg.attachments %}
+                        {% for att in msg.attachments %}
+                            <div class="attachment-badge">
+                                <img src="/api/attachments/{{ att.image_id }}?cid={{ conversation.conversation_id }}" alt="{{ att.filename }}" style="max-width:80px; max-height:60px; border-radius:4px; cursor:pointer; border: 1px solid var(--border-color);" onclick="openImageModal(this.src)">
+                                <div>
+                                    <div style="font-weight:500; font-size:1em; color:#fff;">📎 {{ att.filename }}</div>
+                                    <div style="font-size:0.85em; color:var(--text-muted); margin-top:4px;">
+                                        Analysis: {{ att.analysis_status }}
+                                    </div>
+                                    {% if conversation.investigation_id %}
+                                    <div style="margin-top: 8px;">
+                                        <button class="new-btn" style="padding: 4px 8px; font-size: 0.8em; margin: 0; background: var(--surface-light); border: 1px solid var(--border-color); color: var(--text-muted);" onclick="saveAsEvidence('{{ att.image_id }}', '{{ conversation.conversation_id }}', this)">
+                                            Save as Evidence
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <div class="message {% if msg.role == 'user' %}user-message{% else %}assistant-message{% endif %}">
+                        {% if msg.role == 'assistant' %}
+                            <div class="raw-markdown" style="display:none;">{{ msg.text }}</div>
+                            <div class="rendered-markdown"></div>
+                            
+                            {% if msg.references %}
+                                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                                    <div style="font-size: 0.75em; color: var(--text-muted); margin-bottom: 10px; text-transform:uppercase; letter-spacing:0.05em; font-weight:600;">Sources</div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        {% for ref in msg.references %}
+                                            <button style="border: 1px solid var(--accent); border-radius: 4px; padding: 4px 8px; cursor: pointer; color: var(--accent); background: rgba(0, 153, 255, 0.1); font-size: 0.85em; transition: all 0.2s;" onclick="alert('Viewing Evidence Details:\n\nReference ID: {{ ref.ref_id }}\nTitle: {{ ref.title }}')">
+                                                {{ ref.title }}
+                                            </button>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div style="white-space: pre-wrap;">{{ msg.text }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="spinner"></div>
+            Reasoning...
+        </div>
+        
+        <div class="chat-input-wrapper">
+            <form class="chat-input" id="chat-form" action="/chat" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="cid" value="{{ conversation.conversation_id }}">
+                
+                <label class="icon-btn" style="margin-bottom: 2px;" title="Attach File">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    <input type="file" id="file-input" name="images" accept="image/*" multiple style="display: none;" onchange="updateFileBadge()">
+                </label>
+                
+                <div style="flex-grow: 1; display: flex; flex-direction: column;">
+                    <div id="file-previews" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:5px;"></div>
+                    <textarea name="message" id="message-input" placeholder="Ask, learn, brainstorm..." required></textarea>
+                </div>
+                
+                <button type="submit" id="submit-btn" class="icon-btn submit-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- RIGHT CONTEXT PANEL -->
+    <div class="context-panel">
+        <div class="panel-section">
+            <h3>Project</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.project_name %}
+                    {{ conversation.current_context.project_name }}
+                {% else %}
+                    <span style="color:var(--text-muted);">None</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Task</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.task_name %}
+                    {{ conversation.current_context.task_name }}
+                {% else %}
+                    <span style="color:var(--text-muted);">None</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Current Mission</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.mission_name %}
+                    <strong style="color: #fff;">{{ conversation.current_context.mission_name }}</strong><br>
+                    Target: <span style="color:var(--text-muted);">{{ conversation.current_context.mission_target }}</span>
+                {% else %}
+                    <span style="color:var(--text-muted);">No active mission selected.</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Current Scope</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.mission_scope %}
+                    {{ conversation.current_context.mission_scope }}
+                {% else %}
+                    <span style="color:var(--text-muted);">Unconstrained Research</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Active Investigation</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.investigation_title %}
+                    {{ conversation.current_context.investigation_title }}
+                {% else %}
+                    <span style="color:var(--text-muted);">None selected.</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Relevant Evidence</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.evidence_count is defined %}
+                    {{ conversation.current_context.evidence_count }} items
+                {% else %}
+                    <span style="color:var(--text-muted);">0</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Findings</h3>
+            <div class="panel-value">
+                {% if conversation.current_context.findings_count is defined %}
+                    {{ conversation.current_context.findings_count }} confirmed
+                {% else %}
+                    <span style="color:var(--text-muted);">0</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Knowledge Graph</h3>
+            <div class="panel-value" id="panel-graph">
+                {% if conversation.current_context.graph_available %}
+                    <span style="color: #4caf50;">Available</span>
+                    <button class="panel-btn" style="margin-top: 10px;" onclick="openGraphModal()">View Graph</button>
+                {% else %}
+                    <span style="color:var(--text-muted);">Unavailable</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="panel-section" id="hunt-console">
+            <h3>⚡ Hunt Console</h3>
+            <div class="hunt-status" id="hunt-status">Idle.</div>
+            <div id="hunt-feed"></div>
+            <div id="hunt-graph"></div>
+        </div>
+
+        <div class="panel-section" id="panel-opportunities-section" style="display: none;">
+            <h3>Research Opportunities</h3>
+            <div id="panel-opportunities">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Image Viewer Modal -->
+    <div id="image-modal" class="modal-overlay" onclick="this.style.display='none'">
+        <span style="position:absolute; top:20px; right:40px; color:white; font-size:40px; cursor:pointer;">&times;</span>
+        <img id="image-modal-content" style="max-width:90%; max-height:90%; border-radius:8px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);" onclick="event.stopPropagation()">
+    </div>
+    
+    <!-- Graph Viewer Modal -->
+    <div id="graph-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 90%; height: 90%; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h3 style="margin:0; font-weight:500;">Knowledge Graph</h3>
+                <span onclick="document.getElementById('graph-modal').style.display='none'" style="font-size:24px; cursor:pointer; color:var(--text-muted);">&times;</span>
+            </div>
+            <div id="graph-network" style="flex-grow:1; background:var(--bg-main); border-radius:8px; border:1px solid var(--border-color);"></div>
+        </div>
+    </div>
+
+    <script>
+        // Set up marked.js options
+        marked.setOptions({
+            highlight: function(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                return hljs.highlight(code, { language }).value;
+            },
+            breaks: true
+        });
+
+        // Render markdown
+        document.querySelectorAll('.assistant-message').forEach(container => {
+            const rawEl = container.querySelector('.raw-markdown');
+            const renderEl = container.querySelector('.rendered-markdown');
+            if(rawEl && renderEl) {
+                renderEl.innerHTML = marked.parse(rawEl.textContent);
+            }
+        });
+
+        // Scroll to bottom
+        const messages = document.getElementById('chat-messages');
+        messages.scrollTop = messages.scrollHeight;
+        
+        const currentCid = "{{ conversation.conversation_id }}";
+
+        // Textarea auto-resize and submit on enter
+        const textarea = document.getElementById('message-input');
+        const form = document.getElementById('chat-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+        
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if(textarea.value.trim() !== '') {
+                    submitForm();
+                }
+            }
+        });
+        
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitForm();
+        });
+        
+        async function submitForm() {
+            submitBtn.disabled = true;
+            
+            const msgInput = document.getElementById('message-input');
+            const message = msgInput.value.trim();
+            const cid = document.querySelector('input[name="cid"]').value;
+            
+            if (message === '') {
+                submitBtn.disabled = false;
+                return;
+            }
+            
+            // 1. Create FormData BEFORE clearing the input
+            const formData = new FormData(form);
+            formData.set('message', message); // Ensure trimmed message is used
+            const fileInput = document.getElementById('file-input');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                formData.delete('images');
+            }
+            
+            // Immediately render user message
+            const messagesContainer = document.getElementById('chat-messages');
+            
+            // Remove empty state if present
+            if(messagesContainer.querySelector('h2')) {
+                messagesContainer.innerHTML = '';
+            }
+            
+            // 2. Create user message bubble
+            const userMsgHtml = `
+                <div class="message-container user-message-container">
+                    <div class="message user-message">
+                        <div style="white-space: pre-wrap;">${message}</div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.insertAdjacentHTML('beforeend', userMsgHtml);
+            
+            // 3. Clear input
+            msgInput.value = '';
+            msgInput.style.height = 'auto';
+            document.getElementById('file-previews').innerHTML = '';
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // 3b. Hunt-intent interception: if this is a hunt command, show an
+            // approval card instead of a chat answer (the server re-verifies scope).
+            const huntHandled = await tryProposeHunt(cid, message, messagesContainer);
+            if (huntHandled) {
+                submitBtn.disabled = false;
+                return;
+            }
+
+            // 4. Create Assistant Placeholder Bubble
+            const assistantBubbleId = 'msg-' + Date.now();
+            const assistantMsgHtml = `
+                <div class="message-container assistant-message-container">
+                    <div class="message assistant-message">
+                        <div id="${assistantBubbleId}" class="rendered-markdown"><i>Thinking...</i></div>
+                        <div class="raw-markdown" style="display:none;" id="raw-${assistantBubbleId}"></div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.insertAdjacentHTML('beforeend', assistantMsgHtml);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            try {
+                // Post to streaming endpoint
+                const response = await fetch('/chat/stream', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    // It might have redirected (new conversation) or failed
+                    if (response.redirected) {
+                        window.location.href = response.url;
+                        return;
+                    }
+                    throw new Error("HTTP " + response.status);
+                }
+                
+                let responseCid = cid;
+                if (!cid && response.headers.has('X-Conversation-Id')) {
+                    responseCid = response.headers.get('X-Conversation-Id');
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let fullText = "";
+                const bubble = document.getElementById(assistantBubbleId);
+                const rawBubble = document.getElementById(`raw-${assistantBubbleId}`);
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+                    
+                    // Progressive rendering
+                    rawBubble.textContent = fullText;
+                    bubble.innerHTML = marked.parse(fullText);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+                
+                // Done streaming. Refresh Context!
+                if (!cid) {
+                    if (responseCid) {
+                        window.location.href = '/?cid=' + responseCid;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    refreshContextPanel(cid);
+                }
+                
+            } catch (err) {
+                console.error(err);
+                const bubble = document.getElementById(assistantBubbleId);
+                bubble.innerHTML = `<span style="color:#f44336;">Error: Could not retrieve response. ${err.message}</span>`;
+            }
+            
+            submitBtn.disabled = false;
+        }
+        
+        function updateFileBadge() {
+            const input = document.getElementById('file-input');
+            const previewContainer = document.getElementById('file-previews');
+            previewContainer.innerHTML = '';
+            
+            if(input.files && input.files.length > 0) {
+                Array.from(input.files).forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const previewWrapper = document.createElement('div');
+                        previewWrapper.style.position = 'relative';
+                        previewWrapper.style.display = 'inline-block';
+                        
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.style.maxWidth = '80px';
+                        img.style.maxHeight = '60px';
+                        img.style.borderRadius = '4px';
+                        img.style.border = '1px solid var(--border-color)';
+                        img.title = `${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+                        
+                        const removeBtn = document.createElement('div');
+                        removeBtn.innerHTML = '&times;';
+                        removeBtn.style.position = 'absolute';
+                        removeBtn.style.top = '-5px';
+                        removeBtn.style.right = '-5px';
+                        removeBtn.style.background = '#f44336';
+                        removeBtn.style.color = 'white';
+                        removeBtn.style.borderRadius = '50%';
+                        removeBtn.style.width = '16px';
+                        removeBtn.style.height = '16px';
+                        removeBtn.style.fontSize = '12px';
+                        removeBtn.style.lineHeight = '16px';
+                        removeBtn.style.textAlign = 'center';
+                        removeBtn.style.cursor = 'pointer';
+                        
+                        // We cannot easily remove single files from a FileList in standard HTML input, 
+                        // so we'll just clear the whole input if they click remove for now, or use DataTransfer.
+                        removeBtn.onclick = function() {
+                            const dt = new DataTransfer();
+                            Array.from(input.files).forEach((f, i) => {
+                                if(i !== index) dt.items.add(f);
+                            });
+                            input.files = dt.files;
+                            updateFileBadge();
+                        };
+                        
+                        previewWrapper.appendChild(img);
+                        previewWrapper.appendChild(removeBtn);
+                        previewContainer.appendChild(previewWrapper);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            }
+        }
+
+        // Load History
+        async function createNewConversation(projectId = "", taskId = "") {
+            try {
+                // Post to API to create an empty conversation
+                const payload = {};
+                if (projectId) payload.project_id = projectId;
+                if (taskId) payload.task_id = taskId;
+                
+                const res = await fetch('/api/conversations/', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    window.location.href = `/?cid=${data.conversation_id}`;
+                } else {
+                    alert("Failed to create conversation");
+                }
+            } catch (err) {
+                alert("Failed to create conversation");
+            }
+        }
+        
+        async function createNewProject() {
+            const name = prompt("Project Name:");
+            if (!name) return;
+            try {
+                await fetch('/api/projects/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+                loadProjects();
+            } catch (e) { alert("Failed to create project"); }
+        }
+        
+        async function createNewTask(projectId) {
+            const name = prompt("Task Name:");
+            if (!name) return;
+            try {
+                await fetch(`/api/projects/${projectId}/tasks`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: name})
+                });
+                loadProjects();
+            } catch (e) { alert("Failed to create task"); }
+        }
+
+        async function renameConversation(cid, oldTitle) {
+            const newTitle = prompt("Rename Conversation:", oldTitle);
+            if (newTitle && newTitle !== oldTitle) {
+                try {
+                    await fetch(`/api/conversations/${cid}`, {
+                        method: 'PATCH',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({title: newTitle})
+                    });
+                    document.getElementById('chat-title').innerText = newTitle;
+                    loadHistory(document.getElementById('search-box').value);
+                    loadProjects();
+                } catch(e) {
+                    alert("Failed to rename conversation");
+                }
+            }
+        }
+
+        async function loadProjects() {
+            try {
+                const query = document.getElementById('search-box').value;
+                const searchParams = query ? `?q=${encodeURIComponent(query)}` : '';
+                
+                const [projRes, convRes] = await Promise.all([
+                    fetch('/api/projects/'),
+                    fetch(`/api/conversations/search${searchParams}`)
+                ]);
+                
+                const projects = await projRes.json();
+                const conversations = await convRes.json();
+                
+                const projList = document.getElementById('projects-list');
+                projList.innerHTML = "";
+                
+                for (const p of projects) {
+                    // Fetch tasks for project
+                    const taskRes = await fetch(`/api/projects/${p.project_id}/tasks`);
+                    const tasks = await taskRes.json();
+                    
+                    const pEl = document.createElement('div');
+                    pEl.style.marginBottom = "10px";
+                    pEl.innerHTML = `
+                        <div class="sidebar-item" style="font-weight: 600; color: #fff;">
+                            <span style="flex-grow:1;">▸ ${p.name}</span>
+                            <button onclick="createNewTask('${p.project_id}'); event.stopPropagation();" title="Add Task">+</button>
+                        </div>
+                    `;
+                    
+                    const tList = document.createElement('div');
+                    tList.style.paddingLeft = "15px";
+                    
+                    for (const t of tasks) {
+                        const tEl = document.createElement('div');
+                        tEl.innerHTML = `
+                            <div class="sidebar-item" style="color: #ddd;">
+                                <span style="flex-grow:1;">↳ ${t.name}</span>
+                                <button onclick="createNewConversation('${p.project_id}', '${t.task_id}'); event.stopPropagation();" title="Add Conversation">+</button>
+                            </div>
+                        `;
+                        const cList = document.createElement('div');
+                        cList.style.paddingLeft = "20px";
+                        
+                        const taskConvs = conversations.filter(c => c.task_id === t.task_id);
+                        taskConvs.forEach(c => {
+                            const cEl = document.createElement('div');
+                            cEl.className = `sidebar-item ${c.conversation_id === currentCid ? 'active' : ''}`;
+                            cEl.innerHTML = `
+                                <span style="flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="window.location.href='/?cid=${c.conversation_id}'">
+                                    ${c.title}
+                                </span>
+                                <button onclick="deleteConv('${c.conversation_id}', event)">x</button>
+                            `;
+                            cList.appendChild(cEl);
+                        });
+                        
+                        tEl.appendChild(cList);
+                        tList.appendChild(tEl);
+                    }
+                    pEl.appendChild(tList);
+                    projList.appendChild(pEl);
+                }
+            } catch (err) {
+                console.error("Failed to load projects", err);
+            }
+        }
+
+        async function loadHistory(query = "") {
+            const url = query ? `/api/conversations/search?q=${encodeURIComponent(query)}` : '/api/conversations/';
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                const list = document.getElementById('history-list');
+                list.innerHTML = "";
+                
+                // Only show conversations that don't belong to a project/task in "Recent"
+                const unassigned = data.filter(c => !c.task_id);
+                
+                unassigned.forEach(conv => {
+                    const el = document.createElement('div');
+                    el.className = `sidebar-item ${conv.conversation_id === currentCid ? 'active' : ''}`;
+                    el.innerHTML = `
+                        <span style="flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" onclick="window.location.href='/?cid=${conv.conversation_id}'">
+                            ${conv.title}
+                        </span>
+                        <button onclick="deleteConv('${conv.conversation_id}', event)">x</button>
+                    `;
+                    list.appendChild(el);
+                });
+                
+                // Refresh projects list if searching
+                if (query) {
+                    loadProjects();
+                }
+            } catch (err) {
+                console.error("Failed to load history", err);
+            }
+        }
+        
+        async function deleteCurrent() {
+            if(!currentCid) return;
+            if(!confirm("Delete this conversation?")) return;
+            await fetch(`/api/conversations/${currentCid}`, { method: 'DELETE' });
+            window.location.href = "/";
+        }
+        
+        async function refreshContextPanel(cid) {
+            if (!cid) return;
+            try {
+                const response = await fetch(`/api/conversations/${cid}/context`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // We can dynamically update the DOM or just reload for now
+                    // Let's dynamically update a few critical things
+                    if(data.evidence_count !== undefined) {
+                        const panels = document.querySelectorAll('.panel-section h3');
+                        panels.forEach(h3 => {
+                            if(h3.innerText === "Relevant Evidence") {
+                                h3.nextElementSibling.innerText = `${data.evidence_count} items`;
+                            }
+                            if(h3.innerText === "Findings") {
+                                h3.nextElementSibling.innerText = `${data.findings_count} confirmed`;
+                            }
+                        });
+                    }
+                    
+                    // Render Research Opportunities
+                    const oppSection = document.getElementById('panel-opportunities-section');
+                    const oppContainer = document.getElementById('panel-opportunities');
+                    
+                    if (data.opportunities && data.opportunities.length > 0) {
+                        oppSection.style.display = 'block';
+                        oppContainer.innerHTML = '';
+                        
+                        data.opportunities.forEach((opp, i) => {
+                            const oppEl = document.createElement('div');
+                            oppEl.className = 'panel-value';
+                            oppEl.style.marginBottom = '10px';
+                            oppEl.innerHTML = `
+                                <div style="font-weight: 600; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="color: #fff;">${i+1}. ${opp.title}</span>
+                                    ${opp.priority === 'HIGH' ? '<span style="color: #f44336; font-size: 0.8em; border: 1px solid #f44336; padding: 2px 4px; border-radius: 4px;">High</span>' : ''}
+                                </div>
+                                <div style="font-size: 0.9em; margin-bottom: 8px;">
+                                    <strong>Why:</strong> ${opp.reason}
+                                </div>
+                                <div style="font-size: 0.85em; color: var(--text-muted); margin-bottom: 8px;">
+                                    <strong>Missing:</strong> ${opp.missing_evidence}
+                                </div>
+                                <button class="panel-btn" style="padding: 6px; font-size: 0.85em; background: #2a2a2a;" onclick="testOpportunity('${opp.title.replace(/'/g, "\\'")}')">Test this</button>
+                            `;
+                            oppContainer.appendChild(oppEl);
+                        });
+                    } else {
+                        oppSection.style.display = 'none';
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to refresh context", err);
+            }
+        }
+        
+        function testOpportunity(title) {
+            const msgInput = document.getElementById('message-input');
+            msgInput.value = `I want to test: ${title}. How should I proceed?`;
+            submitForm();
+        }
+
+        async function saveAsEvidence(attachmentId, cid, btnElement) {
+            btnElement.disabled = true;
+            btnElement.innerText = "Saving...";
+            
+            try {
+                const response = await fetch(`/api/attachments/${attachmentId}/evidence?cid=${cid}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    btnElement.innerText = "Saved as Evidence";
+                    btnElement.style.color = "var(--success)";
+                    btnElement.style.borderColor = "var(--success)";
+                    
+                    // Dynamically refresh context panel
+                    refreshContextPanel(cid);
+                } else {
+                    const data = await response.json();
+                    btnElement.innerText = "Failed";
+                    btnElement.disabled = false;
+                    alert("Error: " + (data.detail || "Could not save evidence"));
+                }
+            } catch (e) {
+                console.error(e);
+                btnElement.innerText = "Failed";
+                btnElement.disabled = false;
+            }
+        }
+        
+        async function deleteConv(cid, e) {
+            e.stopPropagation();
+            if(!confirm("Are you sure you want to delete this conversation?")) return;
+            
+            try {
+                await fetch(`/api/conversations/${cid}`, { method: 'DELETE' });
+                if(cid === currentCid) {
+                    window.location.href = '/';
+                } else {
+                    loadHistory(document.getElementById('search-box').value);
+                }
+            } catch (err) {
+                console.error("Failed to delete", err);
+            }
+        }
+        
+        async function deleteCurrent() {
+            if(currentCid) {
+                deleteConv(currentCid, {stopPropagation: () => {}});
+            }
+        }
+        
+        function openImageModal(src) {
+            document.getElementById('image-modal-content').src = src;
+            document.getElementById('image-modal').style.display = 'flex';
+        }
+        
+        document.getElementById('search-box').addEventListener('input', (e) => {
+            loadHistory(e.target.value);
+        });
+
+        let network = null;
+        async function openGraphModal() {
+            const invId = "{{ conversation.investigation_id }}";
+            const missionId = "{{ conversation.mission_id }}";
+            if (!missionId) {
+                alert("No active mission to load graph.");
+                return;
+            }
+            
+            document.getElementById('graph-modal').style.display = 'flex';
+            
+            try {
+                const res = await fetch(`/api/investigations/${invId || 'default'}/graph?mission_id=${missionId}`);
+                if (!res.ok) throw new Error("Failed to load graph data");
+                const data = await res.json();
+                
+                const container = document.getElementById('graph-network');
+                const graphData = { nodes: new vis.DataSet(data.nodes), edges: new vis.DataSet(data.edges) };
+                const options = {
+                    nodes: { shape: 'dot', size: 16, font: { color: '#ffffff' } },
+                    edges: { color: { color: '#888888', highlight: '#007acc' }, font: { color: '#a0a0a0', size: 12, align: 'top' }, arrows: { to: { enabled: true, scaleFactor: 0.5 } } },
+                    physics: { barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 95 } }
+                };
+                
+                if (network) network.destroy();
+                network = new vis.Network(container, graphData, options);
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
+        // ===== Hunt bridge: propose -> approval card -> confirm -> live console =====
+        function huntEscape(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+            ));
+        }
+
+        async function tryProposeHunt(cid, message, container) {
+            let data;
+            try {
+                const fd = new FormData();
+                fd.set('cid', cid || '');
+                fd.set('message', message);
+                const res = await fetch('/hunt/propose', { method: 'POST', body: fd });
+                if (!res.ok) return false;
+                data = await res.json();
+            } catch (err) {
+                console.error(err);
+                return false;
+            }
+            if (!data || !data.is_hunt) return false;
+            renderHuntCard(container, data);
+            return true;
+        }
+
+        function renderHuntCard(container, data) {
+            const cardId = 'hunt-' + Date.now();
+            let inner;
+            if (!data.allowed) {
+                inner = `
+                    <div class="hunt-card denied" id="${cardId}">
+                        <h4>Hunt blocked</h4>
+                        <div class="hunt-row">Target: <b>${huntEscape(data.target)}</b> <span class="hunt-badge out">${huntEscape(data.scope_state || 'DENIED')}</span></div>
+                        <div class="hunt-row">${huntEscape(data.reason)}</div>
+                    </div>`;
+            } else {
+                const badge = data.establishes_scope
+                    ? '<span class="hunt-badge new">NEW SCOPE</span>'
+                    : '<span class="hunt-badge in">IN SCOPE</span>';
+                inner = `
+                    <div class="hunt-card" id="${cardId}">
+                        <h4>Confirm hunt</h4>
+                        <div class="hunt-row">Target: <b>${huntEscape(data.target)}</b> ${badge}</div>
+                        <div class="hunt-row">Profile: <b>${huntEscape(data.profile)}</b></div>
+                        <div class="hunt-row">${huntEscape(data.reason)}</div>
+                        <div class="hunt-actions">
+                            <button class="hunt-btn confirm" onclick="confirmHunt('${data.nonce}', '${cardId}')">Confirm &amp; launch</button>
+                            <button class="hunt-btn deny" onclick="document.getElementById('${cardId}').remove()">Cancel</button>
+                        </div>
+                    </div>`;
+            }
+            const wrap = `<div class="message-container assistant-message-container"><div class="message assistant-message">${inner}</div></div>`;
+            container.insertAdjacentHTML('beforeend', wrap);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function confirmHunt(nonce, cardId) {
+            const card = document.getElementById(cardId);
+            if (card) card.querySelectorAll('button').forEach(b => b.disabled = true);
+            try {
+                const fd = new FormData();
+                fd.set('nonce', nonce);
+                const res = await fetch('/hunt/confirm', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (!data.started) {
+                    if (card) card.insertAdjacentHTML('beforeend', `<div class="hunt-row" style="color:#ef9a9a;">${huntEscape(data.reason)}</div>`);
+                    return;
+                }
+                if (card) card.insertAdjacentHTML('beforeend', `<div class="hunt-row" style="color:#a5d6a7;">Launched mission ${huntEscape(data.mission_id)}.</div>`);
+                startHuntConsole(data.mission_id);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        let huntEventSource = null;
+        let huntGraphTimer = null;
+        let huntNetwork = null;
+        const HUNT_TERMINAL = ['MissionCompleted', 'MissionFailed', 'MissionCancelled'];
+
+        function stopHuntStream() {
+            if (huntEventSource) { huntEventSource.close(); huntEventSource = null; }
+            if (huntGraphTimer) { clearInterval(huntGraphTimer); huntGraphTimer = null; }
+        }
+
+        function startHuntConsole(missionId) {
+            stopHuntStream();
+            document.getElementById('hunt-console').style.display = 'block';
+            document.getElementById('hunt-status').textContent = 'Hunting (mission ' + missionId + ')...';
+            document.getElementById('hunt-feed').innerHTML = '';
+
+            huntEventSource = new EventSource('/hunt/stream/' + encodeURIComponent(missionId));
+            huntEventSource.onmessage = (e) => {
+                let evt; try { evt = JSON.parse(e.data); } catch (_) { return; }
+                appendHuntEvent(evt);
+                if (HUNT_TERMINAL.includes(evt.type)) {
+                    document.getElementById('hunt-status').textContent = 'Finished: ' + evt.type;
+                    pollHuntGraph(missionId);
+                    stopHuntStream();
+                }
+            };
+
+            pollHuntGraph(missionId);
+            huntGraphTimer = setInterval(() => pollHuntGraph(missionId), 3000);
+        }
+
+        function appendHuntEvent(evt) {
+            const feed = document.getElementById('hunt-feed');
+            const d = evt.details || {};
+            if (evt.type === 'CheckpointReached' && d.kind === 'command_approval') {
+                renderCommandApproval(feed, d);
+            } else if (evt.type === 'ToolStarted') {
+                feed.insertAdjacentHTML('beforeend', `<div class="hunt-ev"><span class="et">&#9654; ${huntEscape(d.tool || '')}</span> ${huntEscape((d.args || []).join(' '))}</div>`);
+            } else if (evt.type === 'ToolCompleted') {
+                const snip = d.snippet ? `<div class="hunt-snip">${huntEscape(d.snippet)}</div>` : '';
+                feed.insertAdjacentHTML('beforeend', `<div class="hunt-ev"><span class="et">&#10003; ${huntEscape(d.tool || '')}</span> exit ${huntEscape(String(d.returncode))}${snip}</div>`);
+            } else if (evt.type === 'ToolFailed') {
+                feed.insertAdjacentHTML('beforeend', `<div class="hunt-ev"><span class="et" style="color:#ef9a9a;">&#10007; ${huntEscape(d.tool || '')}</span> ${huntEscape(d.error || '')}</div>`);
+            } else {
+                const detail = Object.keys(d).length ? ' ' + huntEscape(JSON.stringify(d)) : '';
+                feed.insertAdjacentHTML('beforeend', `<div class="hunt-ev"><span class="et">${huntEscape(evt.type)}</span>${detail}</div>`);
+            }
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        function renderCommandApproval(feed, d) {
+            const cardId = 'cmdapp-' + d.nonce;
+            if (document.getElementById(cardId)) return;  // dedupe replays
+            const args = huntEscape((d.args || []).join(' '));
+            feed.insertAdjacentHTML('beforeend', `
+                <div class="hunt-card" id="${cardId}" style="margin:6px 0;">
+                    <h4>Approve command?</h4>
+                    <div class="hunt-row"><b>${huntEscape(d.tool || '')}</b> ${args}</div>
+                    <div class="hunt-row">${huntEscape(d.reason || '')}</div>
+                    <div class="hunt-actions">
+                        <button class="hunt-btn confirm" onclick="confirmCommand('${d.nonce}', true, '${cardId}')">Approve</button>
+                        <button class="hunt-btn deny" onclick="confirmCommand('${d.nonce}', false, '${cardId}')">Deny</button>
+                    </div>
+                </div>`);
+            feed.scrollTop = feed.scrollHeight;
+        }
+
+        async function confirmCommand(nonce, approve, cardId) {
+            const card = document.getElementById(cardId);
+            if (card) card.querySelectorAll('button').forEach(b => b.disabled = true);
+            try {
+                const fd = new FormData();
+                fd.set('nonce', nonce);
+                fd.set('approve', approve ? 'true' : 'false');
+                await fetch('/hunt/command/confirm', { method: 'POST', body: fd });
+                if (card) card.insertAdjacentHTML('beforeend', `<div class="hunt-row" style="color:${approve ? '#a5d6a7' : '#ef9a9a'};">${approve ? 'Approved' : 'Denied'}.</div>`);
+            } catch (err) { console.error(err); }
+        }
+
+        async function pollHuntGraph(missionId) {
+            try {
+                const res = await fetch('/api/investigations/default/graph?mission_id=' + encodeURIComponent(missionId));
+                if (!res.ok) return;
+                const data = await res.json();
+                const graphData = { nodes: new vis.DataSet(data.nodes), edges: new vis.DataSet(data.edges) };
+                const options = {
+                    nodes: { shape: 'dot', size: 12, font: { color: '#ffffff', size: 11 } },
+                    edges: { color: { color: '#888888' }, arrows: { to: { enabled: true, scaleFactor: 0.4 } } },
+                    physics: { barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 80 } }
+                };
+                if (huntNetwork) huntNetwork.destroy();
+                huntNetwork = new vis.Network(document.getElementById('hunt-graph'), graphData, options);
+            } catch (err) { console.error(err); }
+        }
+
+        loadProjects();
+        loadHistory();
+    </script>
+</body>
+</html>
